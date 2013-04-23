@@ -16,7 +16,7 @@
         - each_timeslot do |time|
           %tr.cell-height1
             %td.cell-time
-              - if time.min % 15 == 0
+              - if time.min % 60 == 0
                 %p= time.strftime("%H:%M")
             - @rooms.each do |room|
               - @skip_row[room] -= 1
@@ -32,6 +32,8 @@
                       .event-details
                         .subtitle= event.subtitle
                         .speakers= event.speakers.map{|p| link_to(h(p.full_public_name), public_speaker_path(:id => p.id))}.join(", ").html_safe
+                        %br
+                        .language= event.language
               - else
                 %td &nbsp;
 = javascript_include_tag "public_schedule"
