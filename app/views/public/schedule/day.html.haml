@@ -32,6 +32,8 @@
                       .event-details
                         .subtitle= event.subtitle
                         .speakers= event.speakers.map{|p| link_to(h(p.full_public_name), public_speaker_path(:id => p.id))}.join(", ").html_safe
+                        %br
+                        .language= event.language
               - else
                 %td &nbsp;
 = javascript_include_tag "public_schedule"
