@@ -16,7 +16,7 @@
         - each_timeslot do |time|
           %tr.cell-height1
             %td.cell-time
-              - if time.min % 15 == 0
+              - if time.min % 60 == 0
                 %p= time.strftime("%H:%M")
             - @rooms.each do |room|
               - @skip_row[room] -= 1
