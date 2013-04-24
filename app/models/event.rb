@@ -42,6 +42,7 @@ class Event < ActiveRecord::Base
   scope :accepted, where(self.arel_table[:state].in(["confirmed", "unconfirmed"]))
   scope :public, where(public: true)
   scope :confirmed, where(state: :confirmed)
+  scope :track, lambda {|track| where :track_id => track.id}
 
   acts_as_indexed fields: [:title, :subtitle, :event_type, :abstract, :description, :track_name]
 

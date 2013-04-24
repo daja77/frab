@@ -30,6 +30,13 @@
               = link_to t('public.schedule.nav.speakers'), public_speakers_path
             %li{:class => selected(/events.*$/)}
               = link_to t('public.schedule.nav.events'), public_events_path
+            %li
+              = 'Tracks'
+            - @conference.tracks.each do |track|
+              %li{:class => selected(/#{track.name}$/), :style => "background-color: #"+track.color}
+                %a{:href => public_track_path(:id => track.id)}
+                  = track.name
+
       #main-content
         - unless @conference.schedule_version.nil? or @conference.schedule_version.empty?
           %p.release
