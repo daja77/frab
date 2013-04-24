@@ -5,6 +5,7 @@ class Public::ScheduleController < ApplicationController
 
   def index
     @days = @conference.days
+    @tracks = @conference.tracks
 
     respond_to do |format|
       format.html
@@ -59,6 +60,13 @@ class Public::ScheduleController < ApplicationController
 
   def speaker
     @speaker = Person.publicly_speaking_at(@conference).confirmed(@conference).find(params[:id])
+  end
+
+  def track
+    @track = Track.find(params[:id])
+    @events = @conference.events.public.scheduled.track(@track).sort {|a,b|
+      a.to_sortable <=> b.to_sortable
+    }
   end
 
   private

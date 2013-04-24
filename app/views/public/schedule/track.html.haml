@@ -1,0 +1,21 @@
+%h1
+  = 'Track: ' + @track.name
+%br
+%hr{:style => "background-color: #"+@track.color+"; height: 10px;"}
+
+%table.list
+  %thead
+    %th= t '.title'
+    %th= t '.day'
+    %th= t '.start_time'
+    %th= t '.speakers'
+    %tbody
+      - @events.each do |event|
+        %tr
+          %td= link_to event.title, public_event_path(:id => event.id)
+          %td= l event.start_time.to_date
+          %td= l event.start_time, :format => :time
+          %td
+            %ul
+              - event.speakers.each do |speaker|
+                %li= link_to speaker.full_public_name, public_speaker_path(:id => speaker.id)
