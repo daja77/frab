@@ -45,6 +45,12 @@
                             = "(#{event.language})"
                         .speakers= event.speakers.map{|p| link_to(h(p.full_public_name), public_speaker_path(:id => p.id))}.join(", ").html_safe
                         %br
+                        -if event.event_type == "workshop"
+                          (Workshop)
+                          %br
+                          %a{:style => "font-weight: bold;",:href => "http://www.linuxwochen.at/index.php?option=com_wrapper&view=wrapper&Itemid=73"}
+                            = 'Zur Anmeldung'
+                        %br
                         .language= event.language
               - else
                 %td &nbsp;
