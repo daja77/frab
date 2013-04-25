@@ -5,6 +5,7 @@
 
 %table.list
   %thead
+    %th &nbsp;
     %th= t '.title'
     %th= t '.day'
     %th= t '.start_time'
@@ -12,6 +13,7 @@
     %tbody
       - @events.each do |event|
         %tr
+          %td= link_to image_box(event.logo, :small), public_event_path(:id => event.id)
           %td= link_to event.title, public_event_path(:id => event.id)
           %td= l event.start_time.to_date
           %td= l event.start_time, :format => :time
