@@ -1,6 +1,9 @@
 %h2= t '.schedule_index'
 
 %ul
+  %li
+    %a{:href => "/img/LWW2013_FH_Technikum.png"}
+      = "Lageplan / Room Plan"
   - @conference.days.each_with_index do |day, index|
     %li
       - if @conference.days.length > 1
