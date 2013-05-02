@@ -27,6 +27,10 @@
               %title= event.title
               %subtitle= event.subtitle
               %track= event.track.try(:name)
+              - if event.track
+                %color= '#' + event.track.try(:color)
+              - else
+                %color= '#ededed'
               %type= event.event_type
               %language= event.language
               %abstract= event.abstract
