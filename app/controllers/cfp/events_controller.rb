@@ -8,24 +8,22 @@ class Cfp::EventsController < ApplicationController
   # GET /cfp/events.xml
   def index
     authorize! :submit, Event
+
     @events = current_user.person.events.all
+    unless @events.nil?
+      @events.map { |event| event.clean_event_attributes! } 
+    end
 
     respond_to do |format|
-      format.html # index.html.erb
+      format.html { redirect_to cfp_person_path }
       format.xml  { render xml: @events }
     end
   end
 
   # GET /cfp/events/1
-  # GET /cfp/events/1.xml
   def show
     authorize! :submit, Event
-    @event = current_user.person.events.find(params[:id])
-
-    respond_to do |format|
-      format.html # show.html.erb
-      format.xml  { render xml: @event }
-    end
+    redirect_to(edit_cfp_event_path)
   end
 
   # GET /cfp/events/new
@@ -93,6 +91,12 @@ class Cfp::EventsController < ApplicationController
   def confirm
     if params[:token]
       event_person = EventPerson.find_by_confirmation_token(params[:token])
+
+      # Catch undefined method `person' for nil:NilClass exception if no confirmation token is found.
+      if event_person.nil?
+        return redirect_to cfp_root_path, flash:{ error: t('cfp.no_confirmation_token') }
+      end
+
       event_people = event_person.person.event_people.find_all_by_event_id(params[:id])
       login_as(event_person.person.user) if event_person.person.user
     else

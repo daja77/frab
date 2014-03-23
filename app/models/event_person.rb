@@ -2,7 +2,7 @@ class EventPerson < ActiveRecord::Base
   include UniqueToken
 
   ROLES = [:coordinator, :submitter, :speaker, :moderator]
-  STATES = [:canceled, :confirmed, :declined, :idea, :offer, :unclear]
+  STATES = [:canceled, :confirmed, :declined, :idea, :offer, :unclear, :attending]
 
   belongs_to :event
   belongs_to :person
@@ -35,8 +35,10 @@ class EventPerson < ActiveRecord::Base
 
   def available_between?(start_time, end_time)
     return unless start_time and end_time
-    self.person.availabilities.any? { |a| a.within_range? (start_time) and
-                                         a.within_range? (end_time) }
+    conference = self.event.conference
+    availabilities = self.person.availabilities_in(conference)
+    availabilities.any? { |a| a.within_range? (start_time) and 
+                          a.within_range? (end_time) }
   end
 
   def to_s

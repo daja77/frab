@@ -18,6 +18,7 @@ en:
   edit_conference_days: "Edit conference days"
   edit_conference_tracks: "Edit conference tracks"
   edit_conference_rooms: "Edit conference rooms"
+  edit_conference_schedule: "Edit conference schedule"
   edit_ticket_server: "Edit ticket server"
 
   basic_information: "Basic information"
@@ -27,9 +28,21 @@ en:
   rooms: "Rooms"
   ticket_server: "Ticket Server"
 
+  notifications: Notifications
+
   ability:
     denied: "This action is not allowed."
 
+  conflict:
+    events_overlap: "overlaps with"
+    has_no_availability: "has not entered any availability yet."
+    person_unavailable: "is not available at the scheduled time."
+  time:
+    formats:
+      pretty_datetime: "%Y-%m-%d %H:%M"
+      short_datetime: '%d. %H:%M'
+      month_datetime: '%d. %b %H:%M'
+    time_range_seperator: ' to '
   options:
     lecture: "lecture"
     workshop: "workshop"
@@ -49,12 +62,14 @@ en:
   activerecord:
     models:
       conference: "conference"
+      conference_user: "conference user"
       day: "day"
       event: "event"
       person: "profile"
       event_person: "person"
       language: "language"
       link: "link"
+      notification: "Notification"
       im_account: "IM account"
       phone_number: "phone number"
       event_attachment: "file"
@@ -71,6 +86,3 @@ en:
     user_mailer:
       confirmation_instructions: "Account Activation"
       password_reset_instructions: "Reset Password"
-  time:
-    formats:
-      pretty_datetime: "%Y-%m-%d %H:%M"

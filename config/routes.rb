@@ -11,6 +11,9 @@ Frab::Application.routes.draw do
 
     resources :people do
       resource :user
+      member do
+        put :attend
+      end
     end
 
     scope path: "/:conference_acronym" do
@@ -66,6 +69,9 @@ Frab::Application.routes.draw do
       match "/schedule/update_track" => "schedule#update_track", as: "schedule_update_track"
       match "/schedule/update_event" => "schedule#update_event", as: "schedule_update_event"
       match "/schedule/new_pdf" => "schedule#new_pdf", as: "new_schedule_pdf"
+      match "/schedule/html_exports" => "schedule#html_exports"
+      match "/schedule/static_export" => "schedule#static_export"
+      match "/schedule/download_static_export" => "schedule#download_static_export"
 
       match "/statistics/events_by_state" => "statistics#events_by_state", as: "events_by_state_statistics"
       match "/statistics/language_breakdown" => "statistics#language_breakdown", as: "language_breakdown_statistics"
@@ -73,11 +79,15 @@ Frab::Application.routes.draw do
       resource :conference, except: [:new, :create] do
         get :edit_tracks
         get :edit_days
+        get :edit_schedule
         get :edit_rooms
         get :edit_ticket_server
       end
 
-      resource :call_for_papers
+      resource :call_for_papers do
+        get :edit_notifications
+      end
+      match "/call_for_papers/default_notifications" => "call_for_papers#default_notifications", as: "call_for_papers_default_notifications"
 
       resources :people do
         resource :user

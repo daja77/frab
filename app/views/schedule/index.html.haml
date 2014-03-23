@@ -3,7 +3,9 @@
     .pull-right
       = action_button "", "View public schedule", public_schedule_index_path, :hint => "View the public live version of your schedule just like any attendee might see it."
       = action_button "", "Create custom PDF export", new_schedule_pdf_path, :hint => "Create a PDF version of your program schedule that can easily be printed."
-    %h1 Schedule 
+      = action_button "", "Create static HTML export", schedule_html_exports_path, :hint => "Create a HTML version of your program schedule that can be copied to another web server."
+    %h1 Schedule
+
   %ul.tabs
     - @conference.days.each_with_index do |day, index|
       %li{:class => day_active?(index)}
@@ -15,7 +17,7 @@
           %p
             Before you can schedule any events, you need
             to have at least one room defined for this
-            conference. Go to <em>Conference Settings</em>
+            conference. Go to <em>Settings</em>
             above to enter a room.
   - elsif @conference.events.count == 0
     .row
@@ -54,13 +56,13 @@
               %tr
                 %th= room.name
             %tbody
-              - time = @day.start_date
-              - while time < @day.end_date
+              - slot = 0
+              - each_timeslot do  |time|
                 %tr{:class => cycle('odd', 'even')}
                   %td{:"data-time" => time.to_s(:rfc822)}
-                    - if time.min == 0
+                    - if slot % @conference.default_timeslots == 0
                       = time.strftime("%H:%M")
-                - time = time.since(@conference.timeslot_duration.minutes)
+                - slot += 1
         .clear
         #event-pane
           - @scheduled_events.each do |event|

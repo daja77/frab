@@ -1,5 +1,31 @@
 module ApplicationHelper
 
+  def accessible_conferences
+    conferences = []
+    if current_user.is_crew?
+      conferences = Conference.accessible_by_crew(current_user).order("created_at DESC")
+    else
+      conferences = Conference.order("created_at DESC")
+    end
+    conferences
+  end
+
+  def manageable_conferences
+    conferences = []
+    if current_user.is_crew?
+      conferences = Conference.accessible_by_orga(current_user).order("created_at DESC")
+    else
+      conferences = Conference.order("created_at DESC")
+    end
+    conferences
+  end
+
+  def active_class?(*paths)
+    active = false
+    paths.each { |path| active ||= current_page?(path) }
+    active ? 'active' : nil
+  end
+
   def image_box(image, size)
     content_tag(:div, class: "image #{size}") do
       image_tag image.url(size)
@@ -53,4 +79,12 @@ module ApplicationHelper
     I18n.available_locales & conference_locales
   end
 
+  def by_speakers(event)
+    speakers = event.speakers.map{ |p| link_to p.try(:full_public_name), p}
+    if (not speakers.empty?)
+      "by #{speakers.join(", ")}".html_safe
+    else
+      ""
+    end
+  end
 end

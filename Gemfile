@@ -1,8 +1,6 @@
 source 'http://rubygems.org'
 
-ruby "1.9.3"
-
-gem 'rails', '~> 3.2.13'
+gem 'rails', '~> 3.2.16'
 
 gem 'mysql2'
 gem 'pg'
@@ -20,6 +18,7 @@ gem 'gravatar-ultimate'
 gem 'haml'
 gem 'jquery-rails', '~> 1.0.19'
 gem 'json'
+gem 'jbuilder'
 gem 'localized_language_select', '0.2.0', :git => "git://github.com/frab/localized_language_select.git"
 gem 'nokogiri'
 gem 'paperclip', '< 3.0'
@@ -28,6 +27,7 @@ gem 'prawn'
 gem 'prawn_rails'
 gem 'ransack'
 gem 'ri_cal'
+gem 'sucker_punch', '~> 1.0'
 gem 'settingslogic'
 gem 'transitions', :require => ["transitions", "active_record/transitions"]
 gem 'twitter-bootstrap-rails', :git => "git://github.com/frab/twitter-bootstrap-rails.git", :ref => "5e62b21c8f258010af7f5bc858b89a24f16936a9"
@@ -40,15 +40,21 @@ group :development, :test do
 end
 
 group :test do
-  gem 'factory_girl_rails', '~> 1.2.0'
+  gem 'factory_girl_rails'
   gem 'minitest'
   gem 'turn', :require => false
 end
 
 group :development do
-  gem 'hpricot'
+  gem 'quiet_assets' # silence asset requests
   gem 'shotgun'
   gem 'yaml_db'
+  gem 'pry-rails'
+  gem 'redcarpet'       # documentation
+  gem 'github-markdown' # documentation
+  gem 'yard'            # documentation
+  #gem 'rails-erd'      # graph
+  #gem 'ruby-graphviz', :require => 'graphviz' # Optional: only required for graphing
 end
 
 group :assets do

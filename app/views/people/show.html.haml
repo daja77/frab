@@ -1,21 +1,20 @@
 %section
   .page-header
     .pull-right
-      - if can? :manage, @person
+      - if can? :crud, @person
         = action_button "primary", "Edit person", edit_person_path(@person), :title => "Edit this person's data."
-      - if can? :control, Person
+      - if can? :administrate, Person
         = action_button "add", "Add person", new_person_path, :title => "Add a new person."
-    %h1 Person: #{@person.full_name} 
-  %ul.tabs
-    %li.active= link_to "Profile", @person
-    - if can? :manage, @user or can? :manage, User
-      %li= link_to "User account", person_user_path(@person)
-    - if @person.availabilities_in(@conference).count == 0
-      %li= link_to "Availability", new_person_availability_path(@person)
-    - else
-      %li= link_to "Availability", edit_person_availability_path(@person)
-    %li= link_to "Feedback", feedbacks_people_path(:id => @person.id)
-  .row 
+      - if @person.public_and_accepted_events_as_speaker_in(@conference).present?
+        = action_button "attend", "Attending", attend_person_path, title: "Mark person as present.", method: 'PUT'
+    %h1 Person: #{@person.full_name}
+  = render 'shared/people_tabs'
+  - if can? :manage, Person and @person.user.nil?
+    .row
+      .span16
+        %p.message
+          Person has no user account yet and cannot login. Click on the user tab to create an account.
+  .row
     .span6 
       %h2 Basic information
       %p
@@ -30,6 +29,13 @@
       %p
         %b Gender:
         = @person.gender
+
+      %p
+        %b Event State:
+        - if @person.public_and_accepted_events_as_speaker_in(@conference).present?
+          = @person.role_state @conference
+        - else
+          not speaking
 
       - unless @availabilities.nil?
         %p.availability
@@ -80,7 +86,7 @@
     .span10
       %p
         %b Notes(admin):
-        = simple_format @person.note
+        = @person.note
 %section
   .row
     .span16

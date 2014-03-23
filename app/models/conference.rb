@@ -1,12 +1,16 @@
 class Conference < ActiveRecord::Base
 
-  has_one :call_for_papers, dependent: :destroy
-  has_one :ticket_server, dependent: :destroy
-  has_many :events, dependent: :destroy
+  TICKET_TYPES = %w{otrs rt integrated}
+
+  has_many :availabilities, dependent: :destroy
+  has_many :conference_users, dependent: :destroy
   has_many :days, dependent: :destroy
+  has_many :events, dependent: :destroy
+  has_many :languages, as: :attachable, dependent: :destroy
   has_many :rooms, dependent: :destroy
   has_many :tracks, dependent: :destroy
-  has_many :languages, as: :attachable, dependent: :destroy
+  has_one :call_for_papers, dependent: :destroy
+  has_one :ticket_server, dependent: :destroy
 
   acts_as_indexed fields: [:title, :acronym ]
 
@@ -18,17 +22,33 @@ class Conference < ActiveRecord::Base
   validates_presence_of :title, 
     :acronym, 
     :default_timeslots,
-    :feedback_enabled,
     :max_timeslots,
     :timeslot_duration,
     :timezone
+  validates_inclusion_of :feedback_enabled, :in => [true, false]
   validates_uniqueness_of :acronym
-  validates_format_of :acronym, :with => /^[a-zA-Z][a-zA-Z0-9_-]*$/
+  validates_format_of :acronym, with: /^[a-zA-Z0-9_-]*$/
   validate :days_do_not_overlap
 
   after_update :update_timeslots
 
   has_paper_trail 
+
+  scope :has_submission, lambda { |person|
+    joins(events: [{event_people: :person}])
+    .where(EventPerson.arel_table[:event_role].in(["speaker","moderator"]))
+    .where(Person.arel_table[:id].eq(person.id)).group(:"conferences.id")
+  }
+
+  scope :creation_order, order("conferences.created_at DESC")
+
+  scope :accessible_by_crew, lambda { |user| 
+    joins(:conference_users).where(conference_users: {user_id: user})
+  }
+
+  scope :accessible_by_orga, lambda { |user| 
+    joins(:conference_users).where(conference_users: {user_id: user, role: 'orga'})
+  }
 
   def self.current
     self.order("created_at DESC").first
@@ -70,6 +90,15 @@ class Conference < ActiveRecord::Base
     ]
   end
 
+  def event_duration_sum(events)
+     durations = events.accepted.map { |e| e.time_slots * self.timeslot_duration }
+     duration_to_time durations.sum
+  end
+
+  def export_url
+    "/#{EXPORT_PATH}/#{self.acronym}"
+  end
+
   def language_breakdown(accepted_only = false)
     result = Array.new
     if accepted_only
@@ -85,7 +114,9 @@ class Conference < ActiveRecord::Base
   end
 
   def language_codes
-    self.languages.map{|l| l.code.downcase}
+    codes = self.languages.map{|l| l.code.downcase}
+    codes = %w{en} if codes.empty?
+    codes
   end
 
   def first_day
@@ -116,6 +147,20 @@ class Conference < ActiveRecord::Base
     return true
   end
 
+  def is_ticket_server_enabled?
+    return false if self.ticket_type.nil?
+    return false if self.ticket_type == 'integrated'
+    return true
+  end
+
+  def get_ticket_module
+    if self.ticket_type == 'otrs'
+      return OtrsTickets
+    else
+      return RTTickets
+    end
+  end
+
   def to_s
     "Conference: #{self.title} (#{self.acronym})"
   end
@@ -137,12 +182,19 @@ class Conference < ActiveRecord::Base
   # if a conference has multiple days, they sould not overlap
   def days_do_not_overlap
     return if self.days.count < 2
-    yesterday = self.days[0]
-    self.days[1..-1].each { |day|
+    days = self.days.sort { |a,b| a.start_date <=> b.start_date }
+    yesterday = days[0]
+    days[1..-1].each { |day|
       if day.start_date < yesterday.end_date
         self.errors.add(:days, "day #{day} overlaps with day before") 
       end
     }
+  end
+
+  def duration_to_time(duration_in_minutes)
+    minutes = sprintf("%02d", duration_in_minutes % 60)
+    hours = sprintf("%02d", duration_in_minutes / 60)
+    "#{hours}:#{minutes}h"
   end
 
 end

@@ -1,48 +1,64 @@
 class StaticProgramExport
 
-  def initialize(conference)
+  EXPORT_PATH = Rails.root.join("tmp", "static_export")
+
+  def initialize(conference, locale = 'en')
     @conference = conference
+    @locale = locale
+
+    @asset_paths = []
+    @base_directory = EXPORT_PATH.join(@conference.acronym)
+    @base_url = URI.parse(@conference.program_export_base_url).path
+    @base_url += '/' unless @base_url.end_with?('/')
+    @original_schedule_public = @conference.schedule_public
+
     @session = ActionDispatch::Integration::Session.new(Frab::Application)
     @session.host = Settings.host
     @session.https! if Settings['protocol'] == "https"
-    @asset_paths = [] 
-    @base_directory = Rails.root.join("public", "schedule")
-    @base_url = @conference.program_export_base_url
-    @base_url = URI.parse(@base_url).path
-    unless @base_url.end_with?('/')
-      @base_url += '/'
+  end
+
+  def self.filename(conference, locale = 'en')
+    EXPORT_PATH.join("#{conference.acronym}-#{locale}.tar.gz")
+  end
+
+  def create_tarball
+    out_file = StaticProgramExport.filename(@conference, @locale)
+    if File.exist? out_file
+      File.unlink out_file
     end
+    system( 'tar', *['-cpz', '-f', out_file.to_s, '-C', EXPORT_PATH.to_s, @conference.acronym].flatten )
   end
 
   def run_export
-    setup_directories
+    ActiveRecord::Base.transaction do
+      unlock_schedule unless @original_schedule_public
+
+      setup_directories
+      download_pages
+      copy_stripped_assets
+      create_index_page
+
+      lock_schedule unless @original_schedule_public
+    end
+  end
+
+  private
+
+  def setup_directories
+    FileUtils.rm_r(@base_directory, secure: true) if File.exist? @base_directory
+    FileUtils.mkdir_p(@base_directory)
+  end
+
+  def download_pages
+    paths = get_query_paths
     path_prefix = "/#{@conference.acronym}/public"
-    paths = [
-      { source: "schedule", target: "schedule.html" },
-      { source: "events", target: "events.html" },
-      { source: "speakers", target: "speakers.html" },
-      { source: "schedule/style.css", target: "style.css" },
-      { source: "schedule.ics", target: "schedule.ics" },
-      { source: "schedule.xcal", target: "schedule.xcal" },
-      { source: "schedule.json", target: "schedule.json" },
-      { source: "schedule.xml", target: "schedule.xml" },
-    ]
-    @conference.days.each do |day|
-      paths << { source: "schedule/#{day}", target: "schedule/#{day}.html" }
-      paths << { source: "schedule/#{day}.pdf", target: "schedule/#{day}.pdf" }
+    unless @locale.nil?
+      path_prefix = "/#{@locale}" + path_prefix
     end
-    @conference.events.confirmed.public.each do |event|
-      paths << { source: "events/#{event.id}", target: "events/#{event.id}.html" }
-    end
-    Person.publicly_speaking_at(@conference).confirmed(@conference).each do |speaker|
-      paths << { source: "speakers/#{speaker.id}", target: "speakers/#{speaker.id}.html" }
-    end
-
-    # write files
     paths.each { |p| save_response("#{path_prefix}/#{p[:source]}", p[:target]) }
-    #save_response("#{path_prefix}/#{paths[1][:source]}", paths[1][:target])
+  end
 
-    # copy all assets we detected earlier (jquery, ...)
+  def copy_stripped_assets
     @asset_paths.uniq.each do |asset_path|
       original_path = File.join(Rails.root, "public", URI.unescape(asset_path))
       if File.exist? original_path
@@ -53,15 +69,44 @@ class StaticProgramExport
         STDERR.puts '?? We might be missing "%s"' % original_path
       end
     end
+  end
 
-    # create index.html
+  def create_index_page
     schedule_file = File.join(@base_directory, 'schedule.html')
-    if File.exist?  schedule_file 
+    if File.exist? schedule_file
       FileUtils.cp(schedule_file, File.join(@base_directory, 'index.html'))
     end
   end
 
-  private
+  def get_query_paths
+    paths = [
+        {source: "schedule", target: "schedule.html"},
+        {source: "events", target: "events.html"},
+        {source: "speakers", target: "speakers.html"},
+        {source: "speakers.json", target: "speakers.json"},
+        {source: "schedule/style.css", target: "style.css"},
+        {source: "schedule.ics", target: "schedule.ics"},
+        {source: "schedule.xcal", target: "schedule.xcal"},
+        {source: "schedule.json", target: "schedule.json"},
+        {source: "schedule.xml", target: "schedule.xml"},
+    ]
+
+    day_index = 0
+    @conference.days.each do |day|
+      paths << {source: "schedule/#{day_index}", target: "schedule/#{day_index}.html"}
+      paths << {source: "schedule/#{day_index}.pdf", target: "schedule/#{day_index}.pdf"}
+      day_index += 1
+    end
+
+    @conference.events.public.confirmed.scheduled.each do |event|
+      paths << {source: "events/#{event.id}", target: "events/#{event.id}.html"}
+      paths << {source: "events/#{event.id}.ics", target: "events/#{event.id}.ics"}
+    end
+    Person.publicly_speaking_at(@conference).confirmed(@conference).each do |speaker|
+      paths << {source: "speakers/#{speaker.id}", target: "speakers/#{speaker.id}.html"}
+    end
+    paths
+  end
 
   def save_response(source, filename)
     status_code = @session.get(source)
@@ -117,13 +162,14 @@ class StaticProgramExport
     
     # <a>
     document.css("a").each do |link|
-      if link.attributes["href"].value.start_with?("/")
-        if link.attributes["href"].value =~ /\?\d+$/
+      href = link.attributes["href"] 
+      if href and href.value.start_with?("/")
+        if href.value =~ /\?\d+$/
           strip_asset_path(link, "href")
         else
-          path = @base_url + strip_path(link.attributes["href"].value)
+          path = @base_url + strip_path(href.value)
           path += ".html" unless path =~ /\.\w+$/
-          link.attributes["href"].value = path
+          href.value = path
         end
       end
     end
@@ -140,9 +186,16 @@ class StaticProgramExport
     path.gsub(/^\//, "").gsub(/^(?:en|de)?\/?#{@conference.acronym}\/public\//, "").gsub(/\?(?:body=)?\d+$/, "")
   end
 
-  def setup_directories
-    FileUtils.rm_r(@base_directory, secure: true) if File.exist? @base_directory
-    FileUtils.mkdir_p(@base_directory)
+  def unlock_schedule
+    Conference.paper_trail_off
+    @conference.schedule_public = true
+    @conference.save!
+  end
+
+  def lock_schedule
+    @conference.schedule_public = @original_schedule_public
+    @conference.save!
+    Conference.paper_trail_on
   end
 
 end

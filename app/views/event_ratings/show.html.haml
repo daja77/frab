@@ -62,10 +62,10 @@
               %br/
         - unless @event.event_attachments.public.empty?
           %p
-            %b Attachments:
+            %b #{t('publich.schedule.files')}:
             %br/
             - @event.event_attachments.public.each do |attachment|
-              = link_to attachment.title, attachment.attachment.url
+              = link_to attachment.link_title, attachment.attachment.url
               %br/
       .span10
         %p
@@ -93,7 +93,7 @@
         %p
           %b Total:  
           %span#total_rating{:"data-rating" => @event.average_rating}
-        - if @event_ratings.count > 1
+        - if @event_ratings.count >= 1
           %table.zebra-striped
             %thead
               %tr
@@ -103,13 +103,14 @@
                 %th Comment
             %tbody
               - @event_ratings.each do |event_rating|
-                - event_rating.person = Person.new if event_rating.person.nil?
-                %tr
-                  %td=image_box event_rating.person.avatar, :small
-                  %td=event_rating.person.full_name
-                  %td
-                    .rating{:id => "event_rating_#{event_rating.id}", :"data-rating" => event_rating.rating}
-                  %td=event_rating.comment
+                - if can? :manage, event_rating
+                  - event_rating.person = Person.new if event_rating.person.nil?
+                  %tr
+                    %td=image_box event_rating.person.avatar, :small
+                    %td=event_rating.person.full_name
+                    %td
+                      .rating{:id => "event_rating_#{event_rating.id}", :"data-rating" => event_rating.rating}
+                    %td=event_rating.comment
 
 :javascript
   $(document).ready(function() {

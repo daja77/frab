@@ -8,9 +8,9 @@ class Cfp::PeopleController < ApplicationController
   def show
     @person = current_user.person
 
-    redirect_to :action => "new" unless @person
+    return redirect_to :action => "new" unless @person
     if @person.public_name == current_user.email
-      flash[:alert] = "Please change your public name"
+      flash[:alert] = "Your email address is not a valid public name, please change it."
       redirect_to :action => "edit"
     end
   end
@@ -26,6 +26,10 @@ class Cfp::PeopleController < ApplicationController
 
   def edit
     @person = current_user.person 
+    if @person.nil?
+      flash[:alert] = "Not a valid person"
+      return redirect_to action: :index
+    end
   end
 
   def create

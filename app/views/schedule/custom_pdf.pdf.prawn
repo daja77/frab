@@ -1,23 +1,48 @@
 require "prawn/measurement_extensions"
 
+def get_table_data(rooms)
+  table_data = Array.new
+  table_data << [""] + rooms.map(&:name)
+  each_timeslot do |time|
+    row = []
+    row << l(time, format: :time)
+    rooms.size.times { row << "" }
+    table_data << row
+  end
+
+  table_data
+end
+
+def get_header_left
+  @day.humanized_date_range(:month_datetime)
+end
+
+def get_header_center
+  @conference.acronym
+end
+
+def get_header_right
+  @conference.schedule_version
+end
+
 prawn_document(
   :page_layout => landscape? ? :landscape : :portrait,
   :page_size => @page_size
 ) do |pdf|
 
   pdf.font_families.update("BitStream Vera" => {
-    :normal => Rails.root.join("vendor", "fonts", "vera.ttf"),
-    :bold => Rails.root.join("vendor", "fonts", "verabd.ttf"),
-    :italic => Rails.root.join("vendor", "fonts", "verait.ttf")
+    :normal => Rails.root.join("vendor", "fonts", "vera.ttf").to_s,
+    :bold => Rails.root.join("vendor", "fonts", "verabd.ttf").to_s,
+    :italic => Rails.root.join("vendor", "fonts", "verait.ttf").to_s
   })
   pdf.font "BitStream Vera"
 
   # determine borders by page size, because all timeslots need to fit
   # on one page
   margin_width = 1.5.cm
-  margin_height = 1.cm
+  margin_height = 2.5.cm
   if Prawn::Document::PageGeometry::SIZES["A4"].inject(:*) < Prawn::Document::PageGeometry::SIZES[@page_size].inject(:*)
-    margin_height = 2.cm
+    margin_height = 3.5.cm
   end
 
   header_height = 0.8.cm
@@ -32,18 +57,13 @@ prawn_document(
   number_of_pages.times do |current_page|
   
     offset = current_page * number_of_columns
+
+    pdf.draw_text get_header_left, :size => 9, :at => [ pdf.bounds.left, pdf.bounds.top + 0.5.cm ]
+    pdf.draw_text get_header_center, :size => 16, :at => [ pdf.bounds.left + 12.cm, pdf.bounds.top + 0.5.cm ]
+    pdf.draw_text get_header_right, :size => 9, :at => [ pdf.bounds.right - 1.cm, pdf.bounds.top + 0.5.cm ]
+
     rooms = @rooms[(offset)..(offset + number_of_columns -1)]
-
-    table_data = Array.new
-
-    table_data << [""] + rooms.map(&:name)
-
-    each_timeslot do |time|
-      row = []
-      row << time.strftime("%H:%M")
-      rooms.size.times { row << "" }
-      table_data << row
-    end
+    table_data = get_table_data(rooms)
 
     table = pdf.make_table(table_data) do |t|
       t.cells.style(:border_width => 1.pt, :border_color => "cccccc")
@@ -62,12 +82,31 @@ prawn_document(
     table.draw
     offset = pdf.bounds.height - table.height
 
+    # draw start time column
+    events = @events[rooms[0]]
+    events.each do |event|
+        y = (timeslots_between(event.start_time, @day.end_date) - 1) * timeslot_height
+        y += offset
+        coord = [ 0, y ]
+        pdf.bounding_box(coord,
+                         :width => margin_width - 1,
+                         :height => event.time_slots * timeslot_height - 1) do
+          pdf.rounded_rectangle(pdf.bounds.top_left, pdf.bounds.width, pdf.bounds.height, 3)
+          pdf.fill_color = "ffffff"
+          pdf.fill_and_stroke
+          pdf.fill_color = "000000"
+          pdf.text_box event.start_time.strftime("%H:%M"), :size => 8, :at => [pdf.bounds.left + 2, pdf.bounds.top - 2]
+        end
+    end
+
+    # draw events
     rooms.size.times do |i|
       events = @events[rooms[i]]
       events.each do |event|
-        pdf.bounding_box(event_coordinates(i, event, column_width, timeslot_height, offset), 
-                         :width => column_width, 
-                         :height => event.time_slots * timeslot_height) do
+        coord = event_coordinates(i, event, column_width, timeslot_height, offset)
+        pdf.bounding_box(coord, 
+                         :width => column_width-1, 
+                         :height => event.time_slots * timeslot_height-1) do
           pdf.rounded_rectangle pdf.bounds.top_left, pdf.bounds.width, pdf.bounds.height, 3 
           pdf.fill_color = "ffffff"
           pdf.fill_and_stroke
