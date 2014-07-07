@@ -8,7 +8,15 @@ class ApplicationController < ActionController::Base
 
   rescue_from CanCan::AccessDenied do |ex|
     Rails.logger.info "[ !!! ] Access Denied for #{current_user.email}/#{current_user.id}/#{current_user.role}: #{ex.message}" 
-    redirect_to :back, :notice => t(:"ability.denied")
+    begin
+      if current_user.is_submitter?
+        redirect_to cfp_root_path, :notice => t(:"ability.denied")
+      else
+        redirect_to :back, :notice => t(:"ability.denied")
+      end
+    rescue ActionController::RedirectBackError
+      redirect_to root_path
+    end
   end
 
   protected
@@ -26,9 +34,16 @@ class ApplicationController < ActionController::Base
     if params[:conference_acronym]
       @conference = Conference.find_by_acronym(params[:conference_acronym])
       raise ActionController::RoutingError.new("Not found") unless @conference
+    elsif session.has_key?(:conference_acronym)
+      @conference = Conference.find_by_acronym(session[:conference_acronym])
     elsif Conference.count > 0
       @conference = Conference.current
     end
+
+    unless @conference.nil?
+      session[:conference_acronym] = @conference.acronym
+    end
+
     Time.zone = @conference.timezone if @conference
   end
 
@@ -54,8 +69,17 @@ class ApplicationController < ActionController::Base
     @current_user ||= user
   end
 
+  def current_ability
+    @current_ability ||= Ability.new(current_user, @conference)
+  end
+
   def authenticate_user!
     redirect_to scoped_sign_in_path unless current_user
+  end
+
+  def not_submitter!
+    return unless current_user 
+    redirect_to cfp_root_path, alert: "This action is not allowed" if current_user.is_submitter?
   end
 
   def login_as(user)

@@ -1,12 +1,13 @@
 class PeopleController < ApplicationController
 
   before_filter :authenticate_user!
+  before_filter :not_submitter!
   after_filter :restrict_people
 
   # GET /people
   # GET /people.xml
   def index
-    authorize! :control, Person
+    authorize! :administrate, Person
     if params.has_key?(:term) and not params[:term].empty?
       @search = Person.involved_in(@conference).with_query(params[:term]).search(params[:q])
     else
@@ -16,7 +17,7 @@ class PeopleController < ApplicationController
   end
 
   def speakers
-    authorize! :control, Person
+    authorize! :administrate, Person
     @people = Person.speaking_at(@conference).accessible_by(current_ability)
 
     respond_to do |format|
@@ -35,7 +36,7 @@ class PeopleController < ApplicationController
   end
 
   def all
-    authorize! :control, Person
+    authorize! :administrate, Person
     if params.has_key?(:term) and not params[:term].empty?
       @search = Person.with_query(params[:term]).search(params[:q])
     else
@@ -51,6 +52,10 @@ class PeopleController < ApplicationController
     authorize! :read, @person
     @current_events = @person.events_as_presenter_in(@conference)
     @other_events = @person.events_as_presenter_not_in(@conference)
+    if cannot? :manage, Event
+      @current_events.map { |event| event.clean_event_attributes! }
+      @other_events.map { |event| event.clean_event_attributes! }
+    end
     @availabilities = @person.availabilities.where("conference_id = #{@conference.id}")
 
     respond_to do |format|
@@ -61,9 +66,15 @@ class PeopleController < ApplicationController
 
   def feedbacks
     @person = Person.find(params[:id])
-    authorize! :manage, @person
+    authorize! :access, :event_feedback
     @current_events = @person.events_as_presenter_in(@conference)
     @other_events = @person.events_as_presenter_not_in(@conference)
+  end
+
+  def attend
+    @person = Person.find(params[:id])
+    @person.set_role_state(@conference, 'attending')
+    return redirect_to action: :show
   end
 
   # GET /people/new
@@ -81,6 +92,10 @@ class PeopleController < ApplicationController
   # GET /people/1/edit
   def edit
     @person = Person.find(params[:id])
+    if @person.nil?
+      flash[:alert] = "Not a valid person"
+      return redirect_to action: :index
+    end
     authorize! :manage, @person
   end
 

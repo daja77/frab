@@ -4,6 +4,9 @@ frab is a web-based conference planning and management system.
 It helps to collect submissions, to manage talks and speakers
 and to create a schedule.
 
+[![Build Status](https://travis-ci.org/frab/frab.svg?branch=master)](https://travis-ci.org/frab/frab)
+[![Code Climate](https://codeclimate.com/github/frab/frab.png)](https://codeclimate.com/github/frab/frab)
+
 ## Background
 
 frab was originally created for the organization of FrOSCon 2011 (http://www.froscon.de).
@@ -14,7 +17,7 @@ Both FrOSCon and frab owe a lot to pentabarf. But sadly, pentabarf seems to
 be abandoned. And several problems make it hard to maintain. Thus we decided
 to create a new system.
 
-## Current status
+## Current Status
 
 frab is under heavy development. There is no stable release yet.
 You may want to try to use frab regardless, but be warned, that it may
@@ -80,7 +83,12 @@ with MySQL and SQLite3 (for development).
 
     rake assets:precompile
 
-10) Start the server
+10) Generate secret token and add the generated token into `config/initializers/secret_token.rb`
+
+    rake secret
+    cp config/initializers/secret_token.rb.example config/initializers/secret_token.rb
+
+11) Start the server
 
 To start frab in the development environment simply run
 
@@ -93,12 +101,51 @@ did not skip step 8 and run:
 
 (Note that for a "real" production environment you
 probably do not want to use this script, but rather something
-like unicorn or passenger.)
+like unicorn or passenger. Note that under Apache 2.x
+mod_header is needed.)
 
 Navigate to http://localhost:3000/ and login as
 "admin@example.org" with password "test123".
 
-## Migrating from pentabarf
+### Production Environments
+
+If you are running frab in a production environment you have to
+take additional steps to build a secure and stable site.
+
+0. Change the password of the inital admin account
+1. Change the initial secret token
+2. Add a content disposition header, so attachments get downloaded and 
+are not displayed in the browser. See `./public/system/attachments/.htaccess` for an example.
+3. Add a gem like `exception_notification` to get emails in case of errors.
+
+## Ticket Server
+
+Frab supports OTRS and RT ticket servers. Instead of sending
+event acceptance/rejection mails directly to submitters, frab adds
+a ticket to a request tracker.
+
+The ticket server type can be configured for every conference.
+
+The iPHoneHandle support needs to be installed in OTRS.
+
+## Rake Tasks
+
+### Export / Import conferences
+
+Creates a folder under tmp/frab\_export containing serialized data and
+all attachments:
+
+    RAILS_ENV=production CONFERENCE=acronym rake frab:conference_export
+
+Import a conference into another frab:    
+
+    RAILS_ENV=production rake frab:conference_import
+
+### Sending Mails
+
+    RAILS_ENV=production rake frab:bulk_mailer subject="Conference Invite" from=conference@example.org emails=emails.lst body=body.txt.erb
+
+### Migrating from pentabarf
 
 frab comes with a script that offers limited capabilities of
 migrating data from pentabarf. For it to work, you need access
@@ -115,15 +162,6 @@ out, checkout the code at the revision the script was last
 changed at and upgrade the code and migrate the database
 from there.
 
-## Ticket Server
-
-This fork supports OTRS and RT ticket servers. Instead of sending
-event acceptance/rejection mails directly to submitters, frab adds
-a ticket to a request tracker.
-
-The ticket server type can be configured in
-
-    config/initializers/ticket_server_type.rb
 
 ## Vagrant Server
 
@@ -155,6 +193,13 @@ You can now ssh into the box and start the rails app
     rails server
 
 Visit http://localhost:3000/ to log in to frab.
+    - if @conference.feedback_enabled
+
+## Contact    
+
+For updates and discussions around frab, please join our mailinglist 
+
+    frab (at) librelist.com - to subscribe just send a mail to it
 
 ## License
 

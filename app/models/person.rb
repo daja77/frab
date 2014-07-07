@@ -1,25 +1,25 @@
 class Person < ActiveRecord::Base
 
-  GENDERS = ["male", "female"]
+  GENDERS = %w{male female}
 
-  has_many :event_people, dependent: :destroy
-  has_many :phone_numbers, dependent: :destroy
-  has_many :im_accounts, dependent: :destroy
-  has_many :events, through: :event_people, uniq: true
-  has_many :links, as: :linkable, dependent: :destroy
-  has_many :languages, as: :attachable, dependent: :destroy
   has_many :availabilities, dependent: :destroy
+  has_many :event_people, dependent: :destroy
   has_many :event_ratings, dependent: :destroy
+  has_many :events, through: :event_people, uniq: true
+  has_many :im_accounts, dependent: :destroy
+  has_many :languages, as: :attachable, dependent: :destroy
+  has_many :links, as: :linkable, dependent: :destroy
+  has_many :phone_numbers, dependent: :destroy
 
-  accepts_nested_attributes_for :phone_numbers, reject_if: :all_blank, allow_destroy: true
-  accepts_nested_attributes_for :im_accounts, reject_if: :all_blank, allow_destroy: true
-  accepts_nested_attributes_for :links, reject_if: :all_blank, allow_destroy: true
-  accepts_nested_attributes_for :languages, reject_if: :all_blank, allow_destroy: true
   accepts_nested_attributes_for :availabilities, reject_if: :all_blank
+  accepts_nested_attributes_for :im_accounts, reject_if: :all_blank, allow_destroy: true
+  accepts_nested_attributes_for :languages, reject_if: :all_blank, allow_destroy: true
+  accepts_nested_attributes_for :links, reject_if: :all_blank, allow_destroy: true
+  accepts_nested_attributes_for :phone_numbers, reject_if: :all_blank, allow_destroy: true
 
   belongs_to :user, dependent: :destroy
 
-  acts_as_indexed fields: [:first_name, :last_name, :public_name, :email, :abstract, :description]
+  acts_as_indexed fields: [:first_name, :last_name, :public_name, :email, :abstract, :description, :user_email]
 
   has_paper_trail 
 
@@ -62,6 +62,32 @@ class Person < ActiveRecord::Base
     end
   end
 
+  def user_email
+    self.user.email if self.user.present?
+  end
+
+  def avatar_path(size = :medium)
+    if self.avatar.present?
+      self.avatar(size)
+    end
+  end
+
+  def involved_in?(conference)
+    found = Person.joins(events: :conference)
+                  .where(:"conferences.id" => conference.id)
+                  .where(id: self.id).count
+    found > 0
+  end
+
+  def active_in_any_conference?
+    found = Conference.joins(events: [{event_people: :person}])
+                      .where(Event.arel_table[:state].in(["confirmed", "unconfirmed"]))
+                      .where(EventPerson.arel_table[:event_role].in(["speaker","moderator"]))
+                      .where(Person.arel_table[:id].eq(self.id)).count
+    found > 0
+  end
+
+
   def events_in(conference)
     self.events.where(conference_id: conference.id).all
   end
@@ -76,6 +102,17 @@ class Person < ActiveRecord::Base
 
   def public_and_accepted_events_as_speaker_in(conference)
     self.events.public.accepted.where(:"event_people.event_role" => ["speaker", "moderator"], conference_id: conference.id).all
+  end
+
+  def role_state(conference)
+    speaker_role_state(conference).map { |ep| ep.role_state }.uniq.join ', '
+  end
+
+  def set_role_state(conference, state)
+    speaker_role_state(conference).each do |ep| 
+      ep.role_state = state 
+      ep.save!
+    end
   end
 
   def availabilities_in(conference)
@@ -124,6 +161,12 @@ class Person < ActiveRecord::Base
 
   def to_s
     "Person: #{self.full_name}"
+  end
+
+  private 
+
+  def speaker_role_state(conference)
+    self.event_people.select { |ep| ep.event.conference == conference }.select { |ep| ['speaker', 'moderator'].include? ep.event_role }
   end
 
 end

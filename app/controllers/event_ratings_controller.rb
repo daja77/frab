@@ -1,6 +1,7 @@
 class EventRatingsController < ApplicationController
 
   before_filter :authenticate_user!
+  before_filter :not_submitter!
   before_filter :find_event
 
   def show
@@ -12,19 +13,34 @@ class EventRatingsController < ApplicationController
   end
 
   def create
+    # only one rating allowed, if one exists update instead
+    if @event.event_ratings.find_by_person_id(current_user.person.id)
+      update 
+      return
+    end
     @rating = EventRating.new(params[:event_rating])
     @rating.event = @event
     @rating.person = current_user.person
-    authorize! :manage, @rating
-    @rating.save
-    redirect_to event_event_rating_path, notice: "Rating saved successfully."
+    authorize! :create, @rating
+
+    if @rating.save
+      redirect_to event_event_rating_path, notice: "Rating saved successfully."
+    else
+      flash[:alert] = "Failed to create event rating"
+      render action: "show"
+    end
   end
 
   def update
     @rating = @event.event_ratings.find_by_person_id(current_user.person.id)
-    authorize! :manage, @rating
-    @rating.update_attributes(params[:event_rating])
-    redirect_to event_event_rating_path, notice: "Rating saved successfully."
+    authorize! :update, @rating
+
+    if @rating.update_attributes(params[:event_rating])
+      redirect_to event_event_rating_path, notice: "Rating updated successfully."
+    else
+      flash[:alert] = "Failed to update event rating"
+      render action: "show"
+    end
   end
 
   protected

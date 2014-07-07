@@ -1,6 +1,7 @@
 class ScheduleController < ApplicationController
 
   before_filter :authenticate_user!
+  before_filter :not_submitter!
 
   def index
     authorize! :read, Event
@@ -13,7 +14,7 @@ class ScheduleController < ApplicationController
   end
 
   def update_track
-    authorize! :manage, Event
+    authorize! :crud, Event
     if params[:track_id] and params[:track_id] =~ /\d+/
       @unscheduled_events = @conference.events.accepted.unscheduled.where(track_id: params[:track_id])
     else
@@ -23,7 +24,7 @@ class ScheduleController < ApplicationController
   end
 
   def update_event
-    authorize! :manage, Event
+    authorize! :crud, Event
     event = @conference.events.find(params[:id])
     affected_event_ids = event.update_attributes_and_return_affected_ids(params[:event])
     @affected_events = @conference.events.find(affected_event_ids)
@@ -45,6 +46,40 @@ class ScheduleController < ApplicationController
 
     respond_to do |format|
       format.pdf
+    end
+  end
+
+  def html_exports
+    authorize! :read, @conference
+  end
+
+  def create_static_export
+    authorize! :read, @conference
+
+    StaticProgramExportJob.new.async.perform @conference, check_conference_locale(params[:export_locale])
+    redirect_to schedule_html_exports_path, notice: 'Static schedule export started. Please reload this page after a minute.'
+  end
+
+  def download_static_export
+    authorize! :read, @conference
+
+    conference_export = @conference.conference_export(check_conference_locale(params[:export_locale]))
+    if conference_export.present? and File.readable? conference_export.tarball.path
+      send_file conference_export.tarball.path, type: "application/x-tar-gz"
+    else
+      redirect_to schedule_path, notice: 'No export found to download.'
+    end
+  end
+
+  private
+
+  def check_conference_locale(locale='en')
+    if @conference.language_codes.include?(locale)
+      locale
+    elsif @conference.language_codes.present?
+      @conference.language_codes.first
+    else
+      'en'
     end
   end
 

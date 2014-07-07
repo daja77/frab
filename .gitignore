@@ -1,6 +1,8 @@
 .bundle
+.ruby-version
 config/database.yml
 config/settings.yml
+config/initializers/secret_token.rb
 db/*.sqlite3
 log/*.log
 tmp/*
@@ -18,3 +20,6 @@ cache/
 gems/
 specifications/
 *~
+.vagrant
+doc/
+tags

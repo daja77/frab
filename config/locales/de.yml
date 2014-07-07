@@ -28,9 +28,11 @@ de:
   edit_conference_days: "Konferenz-Tage bearbeiten"
   edit_conference_tracks: "Konferenz-Tracks bearbeiten"
   edit_conference_rooms: "Konferenz-Räume bearbeiten"
+  edit_conference_rooms: "Zeitplan bearbeiten"
   edit_ticket_server: "Ticket-Server bearbeiten"
 
   basic_information: "Grundlegende Informationen"
+  timeslot_configuration: "Konfiguration der Zeiteinheiten"
   schedule_configuration: "Konfiguration des Zeitplans"
   event_languages: "Veranstaltungssprachen"
   static_program_export: "Statischer Programm-Export"
@@ -38,6 +40,11 @@ de:
 
   ability:
     denied: "Der Vorgang ist nicht erlaubt."
+
+  conflict:
+    events_overlap: "überschneidet sich mit"
+    has_no_availability: "hat bisher keine Angaben zur Verfügbarkeit gemacht."
+    person_unavailable: "ist nicht verfügbar zu dieser Zeit."
 
   options:
     lecture: "Vortrag"
@@ -74,13 +81,17 @@ de:
   
   time:
     formats:
-      default: "%A, %d. %B %Y, %H:%M Uhr"
-      short: "%d. %B, %H:%M Uhr"
-      long: "%A, %d. %B %Y, %H:%M Uhr"
-      time: "%H:%M"
+      default: '%A, %d. %B %Y, %H:%M Uhr'
+      short: '%d. %B, %H:%M Uhr'
+      long: '%A, %d. %B %Y, %H:%M Uhr'
+      time: '%H:%M'
+      pretty_datetime: '%Y-%m-%d %H:%M'
+      short_datetime: '%d. %H:%M'
+      month_datetime: '%d. %b %H:%M'
+    time_range_seperator: ' bis '
 
-    am: "vormittags"
-    pm: "nachmittags"
+    am: 'vormittags'
+    pm: 'nachmittags'
       
   datetime:
     distance_in_words:
@@ -332,6 +343,3 @@ de:
     actions:
       create: "%{model} anlegen" 
       update: "Änderungen an %{model} speichern"
-  time:
-    formats:
-      pretty_datetime: "%Y-%m-%d %H:%M"

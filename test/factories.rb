@@ -8,6 +8,10 @@ FactoryGirl.define do
     "frabcon#{n}"
   end
 
+  sequence :room_names do |n|
+    "Room #{n}"
+  end
+
   sequence :event_title do |n|
     "Introducing frap part #{n}"
   end
@@ -16,48 +20,96 @@ FactoryGirl.define do
     role "admin"
   end
 
-  trait :orga_role do
+  trait :crew_role do
+    role "crew"
+  end
+
+  trait :conference_orga_role do
     role "orga"
   end
 
-  trait :coordinator_role do
+  trait :conference_coordinator_role do
     role "coordinator"
   end
 
-  trait :reviewer_role do
+  trait :conference_reviewer_role do
     role "reviewer"
   end
 
   trait :three_days do
-    after_create do |conference|
-      conference.days << FactoryGirl.create(:day, 
+    after :create do |conference|
+      conference.days << create(:day, conference: conference,
                                             start_date: Date.today.since(1.days).since(11.hours),
                                             end_date: Date.today.since(1.days).since(23.hours))
-      conference.days << FactoryGirl.create(:day,
+      conference.days << create(:day, conference: conference,
                                             start_date: Date.today.since(2.days).since(10.hours),
                                             end_date: Date.today.since(2.days).since(24.hours))
-      conference.days << FactoryGirl.create(:day,
+      conference.days << create(:day, conference: conference,
                                             start_date: Date.today.since(3.days).since(10.hours),
                                             end_date: Date.today.since(3.days).since(17.hours))
     end
   end
 
+  trait :with_rooms do
+    after :create do |conference|
+      conference.rooms << create(:room, conference: conference)
+    end
+  end
+
+  trait :with_events do
+    after :create do |conference|
+      conference.events << create(:event, conference: conference,
+                                              room: conference.rooms.first, 
+                                              state: 'confirmed',
+                                              public: true,
+                                              start_time: Date.today.since(1.days).since(11.hours))
+      conference.events << create(:event, conference: conference,
+                                              room: conference.rooms.first, 
+                                              state: 'confirmed',
+                                              public: true,
+                                              start_time: Date.today.since(1.days).since(15.hours))
+      conference.events << create(:event, conference: conference,
+                                              room: conference.rooms.first, 
+                                              state: 'confirmed',
+                                              public: true,
+                                              start_time: Date.today.since(3.days).since(11.hours))
+    end
+  end
+
   factory :user do
     person
-    email { Factory.next(:email) }
+    email { generate(:email) }
     password "frab23"
     password_confirmation { password }
     sign_in_count 0
     confirmed_at { Time.now }
 
     factory :admin_user, traits: [:admin_role]
-    factory :orga_user, traits: [:orga_role]
-    factory :coordinator_user, traits: [:coordinator_role]
-    factory :reviewer_user, traits: [:reviewer_role]
+    factory :crew_user, traits: [:crew_role]
+
+  end
+
+  factory :conference_user do
+    conference
+    after :build do |cu|
+      user = build(:crew_user)
+      user.conference_users << cu
+      cu.user = user
+    end
+
+    factory :conference_orga, traits: [:conference_orga_role]
+    factory :conference_coordinator, traits: [:conference_coordinator_role]
+    factory :conference_reviewer, traits: [:conference_reviewer_role]
+  end
+
+  factory :conference_export do
+    conference
+    locale 'en'
+    tarball { File.open(File.join(Rails.root, 'test', 'fixtures', 'tarball.tar.gz')) }
   end
 
   factory :person do
-    email { Factory.next(:email) }
+    email { generate(:email) }
     public_name "Fred Besen"
   end
 
@@ -66,9 +118,14 @@ FactoryGirl.define do
     end_date { Date.today.since(1.days).since(23.hours) }
   end
 
+  factory :room do
+    name { generate(:room_names) }
+    public true
+  end
+
   factory :conference do
     title "FrabCon"
-    acronym { Factory.next(:conference_acronym) }
+    acronym { generate(:conference_acronym) }
     timeslot_duration 15
     default_timeslots 4
     max_timeslots 20
@@ -77,12 +134,22 @@ FactoryGirl.define do
     timezone "Berlin"
 
     factory :three_day_conference, traits: [:three_days]
+    factory :three_day_conference_with_events, traits: [:three_days, :with_rooms, :with_events]
   end
 
   factory :call_for_papers do
     start_date { Date.today.ago(1.days) }
     end_date { Date.today.since(6.days) }
     conference
+  end
+
+  factory :notification do
+    reject_body "reject body text"
+    reject_subject "rejected subject"
+    accept_body "accept body text"
+    accept_subject "accepted subject"
+    locale "en"
+    call_for_papers
   end
 
   factory :availability do
@@ -104,11 +171,11 @@ FactoryGirl.define do
   end
 
   factory :event do
-    title { Factory.next(:event_title) }
+    title { generate(:event_title) }
     subtitle "Getting started organizing your conference"
     time_slots 4
     start_time "10:00"
-    conference { Factory.create(:three_day_conference) }
+    conference { create(:three_day_conference) }
   end
 
   factory :event_person do

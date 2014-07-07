@@ -1,13 +1,14 @@
 class UsersController < ApplicationController
 
   before_filter :authenticate_user!
+  before_filter :not_submitter!
   before_filter :find_person
 
   # GET /users/1
   # GET /users/1.xml
   def show
     @user = @person.user
-    authorize! :manage, @user
+    can_manage_user!
 
     redirect_to new_person_user_path(@person) unless @user
   end
@@ -16,7 +17,7 @@ class UsersController < ApplicationController
   # GET /users/new.xml
   def new
     @user = User.new
-    authorize! :manage, @user
+    can_manage_user!
 
     respond_to do |format|
       format.html # new.html.erb
@@ -27,15 +28,24 @@ class UsersController < ApplicationController
   # GET /users/1/edit
   def edit
     @user = @person.user 
-    authorize! :manage, @user
+    can_manage_user!
+
+    @user.conference_users.select! { |cu|
+      can? :assign_user_roles, cu.conference
+    }
   end
 
   # POST /users
   # POST /users.xml
   def create
     @user = User.new(params[:user])
-    authorize! :manage, @user
-    @user.role = params[:user][:role]
+    can_manage_user!
+
+    if can? :assign_roles, User
+      @user.role = params[:user][:role]
+    else
+      @user.role = 'submitter'
+    end
     @user.person = @person
     @user.call_for_papers = @conference.call_for_papers
     @user.skip_confirmation!
@@ -55,15 +65,25 @@ class UsersController < ApplicationController
   # PUT /users/1.xml
   def update
     @user = @person.user 
-    authorize! :manage, @user
+    can_manage_user!
 
     [:password, :password_confirmation].each do |password_key|
       params[:user].delete(password_key) if params[:user][password_key].blank?
     end
+
+    # user.role
     if can? :assign_roles, User
       @user.role = params[:user][:role]
+    elsif can_only_manage_crew_roles
+      role = params[:user][:role] 
+      @user.role = role if User::USER_ROLES.include? role
     end
     params[:user].delete(:role)
+
+    # user.conference_users
+    if can_only_manage_crew_roles and params[:user][:conference_users_attributes].present?
+      filter_conference_users(params[:user][:conference_users_attributes])
+    end
 
     respond_to do |format|
       if @user.update_attributes(params[:user])
@@ -83,8 +103,34 @@ class UsersController < ApplicationController
 
   private
 
+  def can_manage_user!
+    if @user.nil? or @user.id.nil?
+      authorize! :administrate, User
+    else
+      authorize! :crud, @user
+    end
+  end
+
+  def can_only_manage_crew_roles
+    cannot? :assign_roles, User and can? :assign_user_roles, User
+  end
+
   def find_person
     @person = Person.find(params[:person_id])
+  end
+
+  def filter_conference_users(conference_users)
+    delete = []
+    conference_users.each do |id, conference_user|
+      if conference_user.has_key?(:conference_id) and conference_user[:conference_id].present?
+        conference = Conference.find conference_user[:conference_id]
+        delete << id unless can? :assign_user_roles, conference
+      else
+        delete << id
+      end
+    end
+
+    delete.each { |p| conference_users.delete(p) }
   end
 
 end

@@ -1,9 +1,10 @@
 class ConferencesController < ApplicationController
 
   # these methods don't need a conference
-  skip_before_filter :load_conference, only: [:new, :index]
+  skip_before_filter :load_conference, only: [:new, :index, :create]
 
   before_filter :authenticate_user!
+  before_filter :not_submitter!
   load_and_authorize_resource
 
   # GET /conferences
@@ -89,8 +90,11 @@ class ConferencesController < ApplicationController
 
   def get_previous_nested_form(parameters)
     parameters.keys.each { |name|
-      next unless name.index("_attributes") > 0
+      attribs = name.index("_attributes") 
+      next if attribs.nil?
+      next unless attribs > 0
       test = name.gsub("_attributes", '')
+      next unless %w{rooms days schedule tracks ticket_server }.include?(test)
       return "edit_#{test}"
     }
     return "edit"

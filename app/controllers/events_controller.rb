@@ -1,6 +1,7 @@
 class EventsController < ApplicationController
 
   before_filter :authenticate_user!
+  before_filter :not_submitter!
   after_filter :restrict_events
   
   # GET /events
@@ -14,6 +15,7 @@ class EventsController < ApplicationController
     end
     @events = @search.result.paginate page: params[:page]
 
+    clean_events_attributes
     respond_to do |format|
       format.html # index.html.erb
       format.xml  { render xml: @events }
@@ -28,12 +30,13 @@ class EventsController < ApplicationController
     else
       @search = @conference.events.associated_with(current_user.person).search(params[:q])
     end
+    clean_events_attributes
     @events = @search.result.paginate page: params[:page]
   end
 
   # events as pdf
   def cards
-    authorize! :read, Event
+    authorize! :crud, Event
     if params[:accepted]
       @events = @conference.events.accepted
     else
@@ -47,9 +50,10 @@ class EventsController < ApplicationController
 
   # show event ratings
   def ratings
-    authorize! :read, EventRating
+    authorize! :create, EventRating
     @search = @conference.events.search(params[:q])
     @events = @search.result.paginate page: params[:page]
+    clean_events_attributes
 
     # total ratings:
     @events_total = @conference.events.count
@@ -63,7 +67,7 @@ class EventsController < ApplicationController
 
   # show event feedbacks
   def feedbacks
-    authorize! :read, EventFeedback
+    authorize! :access, :event_feedback
     @search = @conference.events.accepted.search(params[:q])
     @events = @search.result.paginate page: params[:page]
   end
@@ -86,6 +90,7 @@ class EventsController < ApplicationController
     @event = Event.find(params[:id])
     authorize! :read, @event
 
+    clean_events_attributes
     respond_to do |format|
       format.html # show.html.erb
       format.xml  { render xml: @event }
@@ -103,7 +108,7 @@ class EventsController < ApplicationController
   # GET /events/new
   # GET /events/new.xml
   def new
-    authorize! :manage, Event
+    authorize! :crud, Event
     @event = Event.new
 
     respond_to do |format|
@@ -115,13 +120,13 @@ class EventsController < ApplicationController
   # GET /events/1/edit
   def edit
     @event = Event.find(params[:id])
-    authorize! :manage, @event
+    authorize! :update, @event
   end
 
   # GET /events/2/edit_people
   def edit_people
     @event = Event.find(params[:id])
-    authorize! :manage, @event
+    authorize! :update, @event
   end
 
   # POST /events
@@ -129,7 +134,7 @@ class EventsController < ApplicationController
   def create
     @event = Event.new(params[:event])
     @event.conference = @conference
-    authorize! :manage, @event
+    authorize! :create, @event
 
     respond_to do |format|
       if @event.save
@@ -146,7 +151,7 @@ class EventsController < ApplicationController
   # PUT /events/1.xml
   def update
     @event = Event.find(params[:id])
-    authorize! :manage, @event
+    authorize! :update, @event
 
     respond_to do |format|
       if @event.update_attributes(params[:event])
@@ -164,13 +169,26 @@ class EventsController < ApplicationController
   # GET /events/2/update_state?transition=cancel
   def update_state
     @event = Event.find(params[:id])
-    authorize! :manage, @event
+    authorize! :update, @event
 
     if params[:send_mail]
-      redirect_to(@event, alert: "Cannot send mails: Please specify an email address for this conference.") and return unless @conference.email
-      redirect_to(@event, alert: "Cannot send mails: Not all speakers have email addresses.") and return unless @event.speakers.all?{|s| s.email}
+
+      # If integrated mailing is used, take care that a notification text is present.
+      if @event.conference.call_for_papers.notifications.empty?
+        return redirect_to edit_call_for_papers_path, alert: 'No notification text present. Please change the default text for your needs, before accepting/ rejecting events.'
+      end
+
+      return redirect_to(@event, alert: "Cannot send mails: Please specify an email address for this conference.") unless @conference.email
+
+      return redirect_to(@event, alert: "Cannot send mails: Not all speakers have email addresses.") unless @event.speakers.all?{|s| s.email}
     end
-    @event.send(:"#{params[:transition]}!", send_mail: params[:send_mail], coordinator: current_user.person)
+
+    begin
+      @event.send(:"#{params[:transition]}!", send_mail: params[:send_mail], coordinator: current_user.person)
+    rescue => ex
+      return redirect_to(@event, alert: "Cannot send mails: #{ex}.")
+    end
+
     redirect_to @event, notice: 'Event was successfully updated.' 
   end
 
@@ -178,7 +196,7 @@ class EventsController < ApplicationController
   # DELETE /events/1.xml
   def destroy
     @event = Event.find(params[:id])
-    authorize! :manage, @event
+    authorize! :destroy, @event
     @event.destroy
 
     respond_to do |format|
@@ -192,6 +210,16 @@ class EventsController < ApplicationController
   def restrict_events
     unless @events.nil?
       @events = @events.accessible_by(current_ability)
+    end
+  end
+
+  def clean_events_attributes
+    return if can? :crud, Event
+    unless @event.nil?
+      @event.clean_event_attributes!
+    end
+    unless @events.nil?
+      @events.map { |event| event.clean_event_attributes! } 
     end
   end
 
