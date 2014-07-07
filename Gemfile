@@ -12,7 +12,7 @@ gem 'barista'
 gem 'bcrypt-ruby', '~> 3.0.0'
 gem 'cancan'
 gem 'cocoon'
-gem 'formtastic-bootstrap', :git => "git://github.com/katastrophie/formtastic-bootstrap.git"
+gem 'formtastic-bootstrap', :git => "git://github.com/frab/formtastic-bootstrap.git"
 gem 'formtastic', '~> 2.1.0'
 gem 'gravatar-ultimate'
 gem 'haml'
