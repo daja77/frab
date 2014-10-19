@@ -25,7 +25,8 @@
         - each_timeslot do |time|
           %tr.cell-height1
             %td.cell-time
-              - if slot % @conference.default_timeslots == 0
+              - if time.min % 60 == 0
+# show only full hours in public schedule
                 %p= time.strftime("%H:%M")
             - @rooms.each do |room|
               - @skip_row[room] -= 1

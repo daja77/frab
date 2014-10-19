@@ -104,7 +104,7 @@ class Event < ActiveRecord::Base
   end
 
   def feedback_standard_deviation
-    arr = self.event_feedbacks.map(&:rating)
+    arr = self.event_feedbacks.map(&:rating).reject(&:nil?)
     return if arr.count < 1
 
     n = arr.count
@@ -236,7 +236,7 @@ class Event < ActiveRecord::Base
   private
 
   def generate_guid
-    self.guid = SecureRandom.urlsafe_base64(nil, false)
+    self.guid = SecureRandom.uuid
   end
 
   def average(rating_type)
