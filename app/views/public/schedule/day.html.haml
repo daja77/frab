@@ -26,6 +26,7 @@
           %tr.cell-height1
             %td.cell-time
               - if time.min % 60 == 0
+# show only full hours in public schedule
                 %p= time.strftime("%H:%M")
             - @rooms.each do |room|
               - @skip_row[room] -= 1
