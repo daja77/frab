@@ -40,7 +40,6 @@ class Event < ActiveRecord::Base
   scope :candidates, where(state: %w{new review unconfirmed confirmed})
   scope :confirmed, where(state: :confirmed)
   scope :no_conflicts, includes(:conflicts).where(:"conflicts.event_id" => nil)
-  scope :public, where(public: true)
   scope :scheduled_on, lambda {|day| where(self.arel_table[:start_time].gteq(day.start_date.to_datetime)).where(self.arel_table[:start_time].lteq(day.end_date.to_datetime)).where(self.arel_table[:room_id].not_eq(nil)) }
   scope :scheduled, where(self.arel_table[:start_time].not_eq(nil).and(self.arel_table[:room_id].not_eq(nil))) 
   scope :unscheduled, where(self.arel_table[:start_time].eq(nil).or(self.arel_table[:room_id].eq(nil))) 
@@ -48,6 +47,8 @@ class Event < ActiveRecord::Base
   scope :public, where(public: true)
   scope :confirmed, where(state: :confirmed)
   scope :track, lambda {|track| where :track_id => track.id}
+  scope :without_speaker, where("speaker_count = 0")
+  scope :with_speaker, where("speaker_count > 0")
 
   acts_as_indexed fields: [:title, :subtitle, :event_type, :abstract, :description, :track_name]
 
