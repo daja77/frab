@@ -40,10 +40,13 @@ class Event < ActiveRecord::Base
   scope :candidates, where(state: %w{new review unconfirmed confirmed})
   scope :confirmed, where(state: :confirmed)
   scope :no_conflicts, includes(:conflicts).where(:"conflicts.event_id" => nil)
-  scope :public, where(public: true)
   scope :scheduled_on, lambda {|day| where(self.arel_table[:start_time].gteq(day.start_date.to_datetime)).where(self.arel_table[:start_time].lteq(day.end_date.to_datetime)).where(self.arel_table[:room_id].not_eq(nil)) }
   scope :scheduled, where(self.arel_table[:start_time].not_eq(nil).and(self.arel_table[:room_id].not_eq(nil))) 
   scope :unscheduled, where(self.arel_table[:start_time].eq(nil).or(self.arel_table[:room_id].eq(nil))) 
+  scope :accepted, where(self.arel_table[:state].in(["confirmed", "unconfirmed"]))
+  scope :public, where(public: true)
+  scope :confirmed, where(state: :confirmed)
+  scope :track, lambda {|track| where :track_id => track.id}
   scope :without_speaker, where("speaker_count = 0")
   scope :with_speaker, where("speaker_count > 0")
 
@@ -101,7 +104,7 @@ class Event < ActiveRecord::Base
   end
 
   def feedback_standard_deviation
-    arr = self.event_feedbacks.map(&:rating)
+    arr = self.event_feedbacks.map(&:rating).reject(&:nil?)
     return if arr.count < 1
 
     n = arr.count
@@ -182,6 +185,7 @@ class Event < ActiveRecord::Base
       update_event_conflicts
       update_people_conflicts
     end
+    self.conflicts
   end
 
   def conflict_level
@@ -232,7 +236,7 @@ class Event < ActiveRecord::Base
   private
 
   def generate_guid
-    self.guid = SecureRandom.urlsafe_base64(nil, false)
+    self.guid = SecureRandom.uuid
   end
 
   def average(rating_type)
@@ -265,14 +269,20 @@ class Event < ActiveRecord::Base
   # check wether person has availability and is available at scheduled time
   def update_people_conflicts
     self.event_people.presenter.group(:person_id,:id).each do |event_person|
-      if event_person.person.availabilities.empty?
-        Conflict.create(event: self, person: event_person.person, conflict_type: "person_has_no_availability", severity: "warning")
-        return
-      end
+      next if conflict_person_has_no_availabilities(event_person)
+      conflict_person_not_available(event_person)
+    end
+  end
 
-      unless event_person.available_between?(self.start_time, self.end_time)
-        Conflict.create(event: self, person: event_person.person, conflict_type: "person_unavailable", severity: "warning")
-      end
+  def conflict_person_has_no_availabilities(event_person)
+    if event_person.person.availabilities.empty?
+      Conflict.create(event: self, person: event_person.person, conflict_type: "person_has_no_availability", severity: "warning")
+    end
+  end
+
+  def conflict_person_not_available(event_person)
+    unless event_person.available_between?(self.start_time, self.end_time)
+      Conflict.create(event: self, person: event_person.person, conflict_type: "person_unavailable", severity: "warning")
     end
   end
 

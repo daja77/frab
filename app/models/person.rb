@@ -19,7 +19,7 @@ class Person < ActiveRecord::Base
 
   belongs_to :user, dependent: :destroy
 
-  acts_as_indexed fields: [:first_name, :last_name, :public_name, :email, :abstract, :description]
+  acts_as_indexed fields: [:first_name, :last_name, :public_name, :email, :abstract, :description, :user_email]
 
   has_paper_trail 
 
@@ -62,6 +62,10 @@ class Person < ActiveRecord::Base
     end
   end
 
+  def user_email
+    self.user.email if self.user.present?
+  end
+
   def avatar_path(size = :medium)
     if self.avatar.present?
       self.avatar(size)
@@ -97,7 +101,7 @@ class Person < ActiveRecord::Base
   end
 
   def public_and_accepted_events_as_speaker_in(conference)
-    self.events.public.accepted.where(:"event_people.event_role" => ["speaker", "moderator"], conference_id: conference.id).all
+    self.events.public.accepted.where(:"events.state" => :confirmed, :"event_people.event_role" => ["speaker", "moderator"], conference_id: conference.id).all
   end
 
   def role_state(conference)
@@ -122,6 +126,7 @@ class Person < ActiveRecord::Base
 
   def update_attributes_from_slider_form(params)
     # remove empty availabilities
+    return unless params.has_key? 'availabilities_attributes'
     params['availabilities_attributes'].each { |k,v| 
       Availability.delete(v['id']) if v['start_date'].to_i == -1
     }
